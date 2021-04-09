@@ -1,6 +1,5 @@
-import { StatusBar } from 'expo-status-bar';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, TouchableOpacity } from 'react-native';
+import React, { Component } from 'react';
+import { ActivityIndicator, Dimensions, TouchableHighlightBase, TouchableOpacity } from 'react-native';
 import { Camera } from 'expo-camera';
 import styled from "styled-components";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -24,80 +23,113 @@ const IconBar = styled.View`
 `;
 
 
-export default function App() {
-  const [hasPermission, setHasPermission] = React.useState(null);
-  const [cameraType, setCameraType] = useState(Camera.Constants.Type.front);
-  const [smileDetected, setSmileDetected] = useState(false);
+class App extends Component {
+  constructor(props) {
+    super(props);
+    this.state = {
+      hasPermission: null,
+      cameraType: Camera.Constants.Type.front,
+      smileDetected: false
+    };
+    this.cameraRef = React.createRef();
+  }
+  
+  componentDidMount = async () => {
+    const { status } = await Camera.requestPermissionsAsync();
+    this.setState({ hasPermission: status === 'granted' });
+  }
 
-  useEffect(() => {
-    (async () => {
-      const { status } = await Camera.requestPermissionsAsync();
-      setHasPermission(status === 'granted');
-      const ratios = await Camera.getSupportedRatiosAsync();
-        console.log(ratios)
-    })();
-  }, []);
-
-  const switchCameraType = () => {
+  switchCameraType = () => {
     return cameraType === Camera.Constants.Type.front ?
       setCameraType(Camera.Constants.Type.back)
       : setCameraType(Camera.Constants.Type.front)
   }
 
-  const onFaceDetected = ({faces}) => {
+  takePhoto = async () => {
+    console.log("takePhoto")
+    console.log(this.cameraRef.current)
+
+    try {
+      if (this.cameraRef.current) {
+        let { uri } = await this.cameraRef.current.takePictureAsync({
+          quality: 1
+        });
+  
+        if (uri) {
+          this.savePhoto(uri)
+        }
+      }
+    } catch(error) {
+        alert(error);
+        this.setState({ smileDetected: false });
+    }
+  }
+
+  savePhoto = async (photo) => {
+
+  }
+
+  onFaceDetected = ({faces}) => {
     const face = faces[0];
 
     if (face) {
+      // console.log("smile~~~", face.smilingProbability);
       if (face.smilingProbability > 0.7) {
-        setSmileDetected(true);
-        console.log("take photo")
+        this.setState({ smileDetected: true });
+        this.takePhoto();
       }
     }
   }
 
-  if (hasPermission) {
-    return (
-      <CenterView>
-        <Camera 
-          ratio={"1:1"}
-          style={{ 
-            width: width - 40 ,
-            height: width - 40,
-            // width, height,
-            borderRadius: 40,
-            overflow: "hidden",
-          }}
-          type={cameraType}
-          onFacesDetected={smileDetected ? null : onFaceDetected}
-          faceDetectorSettings={{
-            detectLandmarks: FaceDetector.Constants.Landmarks.all,
-            runClassifications: FaceDetector.Constants.Classifications.all,
-          }}
-        />
-        <IconBar>
-          <TouchableOpacity onPress={switchCameraType}>
-              <MaterialIcons
-                name={
-                  cameraType === Camera.Constants.Type.front
-                  ? "camera-rear"
-                  : "camera-front"
-                }
-                color="white"
-                size={50}
-              />
-          </TouchableOpacity>
-        </IconBar>
-      </CenterView>
-    )
-  } else if (!hasPermission) {
-    return (
-      <CenterView>
-        <Text>Don't have permission for this</Text>
-      </CenterView>
-    )
-  } else {
-    return (
-      <ActivityIndicator />
-    )
+  render() {
+    const { hasPermission, cameraType, smileDetected } = this.state;
+
+    if (hasPermission) {
+      return (
+        <CenterView>
+          <Camera 
+            ratio={"1:1"}
+            style={{ 
+              width: width - 40 ,
+              height: width - 40,
+              borderRadius: 40,
+              overflow: "hidden",
+            }}
+            type={cameraType}
+            onFacesDetected={smileDetected ? null : this.onFaceDetected}
+            faceDetectorSettings={{
+              detectLandmarks: FaceDetector.Constants.Landmarks.all,
+              runClassifications: FaceDetector.Constants.Classifications.all,
+            }}
+            ref={this.cameraRef}
+          />
+          <IconBar>
+            <TouchableOpacity onPress={this.switchCameraType}>
+                <MaterialIcons
+                  name={
+                    cameraType === Camera.Constants.Type.front
+                    ? "camera-rear"
+                    : "camera-front"
+                  }
+                  color="white"
+                  size={50}
+                />
+            </TouchableOpacity>
+          </IconBar>
+        </CenterView>
+      )
+    } else if (!hasPermission) {
+      return (
+        <CenterView>
+          <Text>Don't have permission for this</Text>
+        </CenterView>
+      )
+    } else {
+      return (
+        <ActivityIndicator />
+      )
+    }
   }
 }
+
+export default App;
