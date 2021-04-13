@@ -1,11 +1,15 @@
 import React, { Component } from 'react';
-import { ActivityIndicator, Dimensions, TouchableHighlightBase, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Dimensions, Platform, TouchableHighlightBase, TouchableOpacity } from 'react-native';
 import { Camera } from 'expo-camera';
 import styled from "styled-components";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as FaceDetector from 'expo-face-detector';
+import * as Permissions from "expo-permissions";
+import { addAssetsToAlbumAsync, createAlbumAsync, createAssetAsync, getAlbumAsync } from 'expo-media-library';
 
 const { width, height } = Dimensions.get("window");
+
+const ALBUM_NAME = "Smiley Cam";
 
 const CenterView = styled.View`
   flex: 1;
@@ -47,7 +51,7 @@ class App extends Component {
 
   takePhoto = async () => {
     console.log("takePhoto")
-    console.log(this.cameraRef.current)
+    // console.log(this.cameraRef.current)
 
     try {
       if (this.cameraRef.current) {
@@ -65,8 +69,36 @@ class App extends Component {
     }
   }
 
-  savePhoto = async (photo) => {
+  savePhoto = async (uri) => {
+    try {
+      const { status } = await Permissions.askAsync(Permissions.CAMERA_ROLL);
+      if (status === 'granted') {
+        const asset = await createAssetAsync(uri);
+        let album = await getAlbumAsync(ALBUM_NAME);
+        console.log(album)
+        if (album === null) {
+          album = await createAlbumAsync(ALBUM_NAME,
+              Platform.OS !== "ios" ? asset : null,
+              true
+            );
 
+            await addAssetsToAlbumAsync([asset], album.id);
+        } else {
+          await addAssetsToAlbumAsync([asset], album.id);
+        }
+        setTimeout(
+          () => {
+            this.setState({ smileDetected: false })
+          }
+        )
+      } else {
+        this.setState({ hasPermission: false })
+      }
+
+    } catch (error) {
+      console.log("error")
+      console.log(error);
+    }
   }
 
   onFaceDetected = ({faces}) => {
